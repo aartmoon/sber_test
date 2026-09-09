@@ -16,6 +16,14 @@ API будет доступно по адресу `http://localhost:8080`. Пр�
 curl -i http://localhost:8080/api/bookings
 ```
 
+Состояние приложения и подключение к базе можно проверить через Actuator:
+
+```sh
+curl -i http://localhost:8080/actuator/health
+```
+
+Docker Compose использует этот endpoint для автоматической проверки здоровья контейнера.
+
 Остановка: `docker compose down`.
 
 Локальный запуск требует JDK 21. Gradle отдельно устанавливать не нужно:

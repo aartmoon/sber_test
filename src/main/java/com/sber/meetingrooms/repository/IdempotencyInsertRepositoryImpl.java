@@ -12,7 +12,6 @@ public class IdempotencyInsertRepositoryImpl implements IdempotencyInsertReposit
 
     @Override
     public void insertAndFlush(BookingIdempotency request) {
-        // A concurrent request must fail on the unique key, never overwrite its owner via merge.
         entityManager.persist(request);
         entityManager.flush();
     }

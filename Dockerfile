@@ -9,7 +9,9 @@ RUN ./gradlew --no-daemon build
 
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
-RUN addgroup -S app && adduser -S app -G app
+RUN apk add --no-cache wget \
+    && addgroup -S app \
+    && adduser -S app -G app
 COPY --from=build --chown=app:app /app/build/libs/meeting-rooms.jar app.jar
 USER app
 EXPOSE 8080

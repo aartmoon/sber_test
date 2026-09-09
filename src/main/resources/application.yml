@@ -19,6 +19,14 @@ server:
   error:
     include-message: never
     include-stacktrace: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
 app:
   idempotency:
     cleanup-cron: "0 0 * * * *"
