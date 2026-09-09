@@ -3,7 +3,6 @@ WORKDIR /app
 COPY gradlew build.gradle.kts settings.gradle.kts gradle.properties ./
 COPY gradle ./gradle
 RUN chmod +x gradlew
-# Keep Gradle and downloaded dependencies in a layer exportable to the CI cache.
 RUN ./gradlew --no-daemon resolveDependencies
 COPY src ./src
 RUN ./gradlew --no-daemon build

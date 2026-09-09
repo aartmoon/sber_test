@@ -1,0 +1,224 @@
+openapi: 3.0.3
+info:
+  title: Meeting Rooms API
+  version: 1.2.0
+  description: API for checking room availability and managing bookings.
+servers:
+  - url: /
+tags:
+  - name: Bookings
+  - name: Availability
+paths:
+  /api/bookings:
+    post:
+      tags: [Bookings]
+      operationId: createBooking
+      summary: Create a booking
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingRequest'
+      responses:
+        '201':
+          description: Booking created, or the original response replayed for the same idempotency key
+          headers:
+            Location:
+              description: URL of the created booking
+              schema:
+                type: string
+                format: uri-reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingResponse'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '503': {$ref: '#/components/responses/ServiceUnavailable'}
+    get:
+      tags: [Bookings]
+      operationId: listBookings
+      summary: List bookings in chronological order
+      parameters:
+        - name: cursor
+          in: query
+          description: Opaque cursor returned as nextCursor by the previous response. Omit for the first page.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 128
+        - name: size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: A cursor page of bookings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookingPage'
+        '400': {$ref: '#/components/responses/BadRequest'}
+  /api/bookings/{id}:
+    delete:
+      tags: [Bookings]
+      operationId: cancelBooking
+      summary: Cancel a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Booking cancelled
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+  /api/rooms/{room}/availability:
+    get:
+      tags: [Availability]
+      operationId: getAvailability
+      summary: Check whether a room is available
+      parameters:
+        - name: room
+          in: path
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 50
+        - name: startsAt
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - name: endsAt
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Availability result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityResponse'
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '404': {$ref: '#/components/responses/NotFound'}
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Replays the first successful response when the same normalized request is retried.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    NotFound:
+      description: Resource not found
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Conflict:
+      description: Booking conflict, replay of a cancelled booking, or reuse of an idempotency key with a different request
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    ServiceUnavailable:
+      description: Room lock timeout
+      headers:
+        Retry-After:
+          schema: {type: integer}
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+  schemas:
+    BookingRequest:
+      type: object
+      additionalProperties: false
+      required: [roomId, employeeEmail, startsAt, endsAt]
+      properties:
+        roomId:
+          type: string
+          minLength: 1
+          maxLength: 50
+        employeeEmail:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+    BookingResponse:
+      type: object
+      required: [id, roomId, employeeEmail, startsAt, endsAt, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        roomId: {type: string}
+        employeeEmail: {type: string, format: email}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+    BookingPage:
+      type: object
+      required: [content, size, nextCursor, hasMore]
+      properties:
+        content:
+          type: array
+          items: {$ref: '#/components/schemas/BookingResponse'}
+        size: {type: integer, minimum: 1}
+        nextCursor:
+          type: string
+          nullable: true
+          description: Cursor for the next page, or null when there are no more results.
+        hasMore: {type: boolean}
+    AvailabilityResponse:
+      type: object
+      required: [roomId, startsAt, endsAt, available]
+      properties:
+        roomId: {type: string}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        available: {type: boolean}
+    ValidationError:
+      type: object
+      required: [field, message]
+      properties:
+        field: {type: string}
+        message: {type: string}
+    Problem:
+      type: object
+      required: [title, status]
+      properties:
+        type: {type: string, format: uri-reference}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        instance: {type: string, format: uri-reference}
+        errors:
+          type: array
+          items: {$ref: '#/components/schemas/ValidationError'}

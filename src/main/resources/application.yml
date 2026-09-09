@@ -5,9 +5,12 @@ spring:
     url: jdbc:h2:mem:meetingrooms;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000
     username: sa
     password: ""
-  sql:
-    init:
-      mode: always
+  flyway:
+    locations: classpath:db/migration
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
   jackson:
     deserialization:
       fail-on-unknown-properties: true
