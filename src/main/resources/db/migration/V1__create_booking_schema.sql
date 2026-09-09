@@ -14,3 +14,4 @@ CREATE TABLE bookings (
 );
 
 CREATE INDEX idx_bookings_room_interval ON bookings(room_id, starts_at, ends_at);
+CREATE INDEX idx_bookings_cursor ON bookings(starts_at, id);

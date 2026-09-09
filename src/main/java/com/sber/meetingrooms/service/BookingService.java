@@ -59,7 +59,7 @@ public class BookingService {
 
     public Booking create(CreateBookingCommand command, String idempotencyKey) {
         var normalized = normalizer.normalize(command);
-        intervalValidator.validate(normalized.startsAt(), normalized.endsAt());
+        intervalValidator.validateStructure(normalized.startsAt(), normalized.endsAt());
         String key = normalizer.normalizeIdempotencyKey(idempotencyKey);
         String requestFingerprint = key == null ? null : fingerprint.calculate(normalized);
         try {
@@ -68,7 +68,6 @@ public class BookingService {
             if (key == null) {
                 throw ex;
             }
-            // The losing insert has rolled back; read the winner in a fresh transaction.
             return creationTransaction.execute(status -> replay(key, requestFingerprint).orElseThrow(() -> ex));
         }
     }

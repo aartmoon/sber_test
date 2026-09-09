@@ -64,7 +64,7 @@ class BookingServiceTest {
         assertThat(result.endsAt().getOffset()).isEqualTo(ZoneOffset.UTC);
         assertThat(result.createdAt()).isEqualTo(OffsetDateTime.now(clock));
         var order = inOrder(rooms, validator, bookings);
-        order.verify(validator).validate(request.startsAt(), request.endsAt());
+        order.verify(validator).validateStructure(request.startsAt(), request.endsAt());
         order.verify(rooms).lockById(request.roomId());
         order.verify(validator).validateNotPast(request.startsAt());
         order.verify(bookings).hasOverlap(request.roomId(), request.startsAt(), request.endsAt());
@@ -75,14 +75,14 @@ class BookingServiceTest {
     void doesNotPersistBookingForUnknownRoom() {
         assertThatThrownBy(() -> service.create(request, null))
                 .isInstanceOf(ResourceNotFoundException.class);
-        verify(validator).validate(request.startsAt(), request.endsAt());
+        verify(validator).validateStructure(request.startsAt(), request.endsAt());
         verifyNoInteractions(bookings);
     }
 
     @Test
     void doesNotCheckOverlapOrPersistInvalidInterval() {
         var invalid = new InvalidRequestException("Invalid interval");
-        doThrow(invalid).when(validator).validate(request.startsAt(), request.endsAt());
+        doThrow(invalid).when(validator).validateStructure(request.startsAt(), request.endsAt());
 
         assertThatThrownBy(() -> service.create(request, null)).isSameAs(invalid);
         verifyNoInteractions(rooms, bookings);

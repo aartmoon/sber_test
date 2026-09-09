@@ -15,6 +15,11 @@ public class BookingIntervalValidator {
     }
 
     public void validate(OffsetDateTime startsAt, OffsetDateTime endsAt) {
+        validateStructure(startsAt, endsAt);
+        validateNotPast(startsAt);
+    }
+
+    public void validateStructure(OffsetDateTime startsAt, OffsetDateTime endsAt) {
         if (startsAt == null || endsAt == null) {
             throw new InvalidRequestException("Both startsAt and endsAt are required");
         }
@@ -22,7 +27,6 @@ public class BookingIntervalValidator {
         if (duration.compareTo(Duration.ofMinutes(15)) < 0 || duration.compareTo(Duration.ofHours(4)) > 0) {
             throw new InvalidRequestException("Duration must be between 15 minutes and 4 hours inclusive");
         }
-        validateNotPast(startsAt);
     }
 
     public void validateNotPast(OffsetDateTime startsAt) {

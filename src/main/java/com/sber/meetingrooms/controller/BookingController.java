@@ -10,6 +10,7 @@ import java.net.URI;
 import java.util.UUID;
 import org.springframework.lang.Nullable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -37,7 +38,9 @@ public class BookingController implements BookingsApi {
         return ResponseEntity.ok(mapper.toResponse(service.list(cursor, size)));
     }
 
+    // A bodyless success must not inherit the generated error-only produces constraint.
     @Override
+    @DeleteMapping("/api/bookings/{id}")
     public ResponseEntity<Void> cancelBooking(UUID id) {
         service.cancel(id);
         return ResponseEntity.noContent().build();
