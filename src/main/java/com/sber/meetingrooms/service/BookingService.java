@@ -54,7 +54,6 @@ public class BookingService {
         String key = normalizer.normalizeIdempotencyKey(idempotencyKey);
         String requestFingerprint = key == null ? null : fingerprint.calculate(normalized);
         if (key != null) {
-            idempotency.deleteExpired(OffsetDateTime.now(clock));
             idempotency.lock(key);
             var stored = idempotency.findById(key);
             if (stored.isPresent()) {
@@ -86,7 +85,7 @@ public class BookingService {
         return booking;
     }
 
-    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
     public BookingPageResult list(String cursor, int size) {
         var limit = PageRequest.of(0, size + 1);
         List<Booking> result;

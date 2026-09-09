@@ -3,6 +3,7 @@ package com.sber.meetingrooms.integration;
 import com.sber.meetingrooms.support.ApiIntegrationTestSupport;
 import com.sber.meetingrooms.service.BookingService;
 import com.sber.meetingrooms.repository.IdempotencyRepository;
+import com.sber.meetingrooms.service.IdempotencyCleanupScheduler;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.concurrent.CountDownLatch;
@@ -26,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
     @Autowired BookingService service;
     @Autowired IdempotencyRepository idempotency;
+    @Autowired IdempotencyCleanupScheduler idempotencyCleanup;
 
     @Test
     void servesTheSourceOpenApiContract() throws Exception {
@@ -171,6 +173,7 @@ class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
         var stored = idempotency.findById("expired-key").orElseThrow();
         stored.expireAt(java.time.OffsetDateTime.parse("2030-01-01T07:59:59Z"));
         idempotency.saveAndFlush(stored);
+        idempotencyCleanup.cleanupExpired();
 
         var replay = mvc.perform(post("/api/bookings")
                         .header("Idempotency-Key", "expired-key")
