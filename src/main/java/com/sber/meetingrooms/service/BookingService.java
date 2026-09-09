@@ -14,11 +14,16 @@ import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class BookingService {
@@ -32,11 +37,13 @@ public class BookingService {
     private final BookingFingerprint fingerprint;
     private final BookingCursorCodec cursors;
     private final Clock clock;
+    private final TransactionTemplate creationTransaction;
 
     public BookingService(BookingRepository bookings, RoomRepository rooms,
                           BookingIntervalValidator intervalValidator,
                           IdempotencyRepository idempotency, RequestNormalizer normalizer,
-                          BookingFingerprint fingerprint, BookingCursorCodec cursors, Clock clock) {
+                          BookingFingerprint fingerprint, BookingCursorCodec cursors, Clock clock,
+                          PlatformTransactionManager transactionManager) {
         this.bookings = bookings;
         this.rooms = rooms;
         this.intervalValidator = intervalValidator;
@@ -45,27 +52,41 @@ public class BookingService {
         this.fingerprint = fingerprint;
         this.cursors = cursors;
         this.clock = clock;
+        this.creationTransaction = new TransactionTemplate(transactionManager);
+        this.creationTransaction.setIsolationLevel(TransactionDefinition.ISOLATION_READ_COMMITTED);
+        this.creationTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
-    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Booking create(CreateBookingCommand command, String idempotencyKey) {
         var normalized = normalizer.normalize(command);
         intervalValidator.validate(normalized.startsAt(), normalized.endsAt());
         String key = normalizer.normalizeIdempotencyKey(idempotencyKey);
         String requestFingerprint = key == null ? null : fingerprint.calculate(normalized);
-        if (key != null) {
-            idempotency.lock(key);
-            var stored = idempotency.findById(key);
-            if (stored.isPresent()) {
-                if (!stored.get().fingerprint().equals(requestFingerprint)) {
-                    throw new ConflictException(
-                            "Idempotency-Key was already used for a different request");
-                }
-                if (!bookings.existsById(stored.get().booking().id())) {
-                    throw new ConflictException("The booking created with this Idempotency-Key was cancelled");
-                }
-                return stored.get().booking();
+        try {
+            return creationTransaction.execute(status -> createBooking(normalized, key, requestFingerprint));
+        } catch (DataIntegrityViolationException ex) {
+            if (key == null) {
+                throw ex;
             }
+            // The losing insert has rolled back; read the winner in a fresh transaction.
+            return creationTransaction.execute(status -> replay(key, requestFingerprint).orElseThrow(() -> ex));
+        }
+    }
+
+    private Booking createBooking(RequestNormalizer.NormalizedBooking normalized, String key,
+                                  String requestFingerprint) {
+        if (key != null) {
+            var stored = replay(key, requestFingerprint);
+            if (stored.isPresent()) {
+                return stored.get();
+            }
+        }
+        Booking booking = new Booking(UUID.randomUUID(), normalized.roomId(), normalized.employeeEmail(),
+                normalized.startsAt().withOffsetSameInstant(ZoneOffset.UTC),
+                normalized.endsAt().withOffsetSameInstant(ZoneOffset.UTC), OffsetDateTime.now(clock));
+        if (key != null) {
+            idempotency.insertAndFlush(new BookingIdempotency(key, requestFingerprint, booking,
+                    booking.createdAt().plus(IDEMPOTENCY_RETENTION)));
         }
         if (!rooms.lockById(normalized.roomId())) {
             throw new ResourceNotFoundException("Room not found");
@@ -74,15 +95,21 @@ public class BookingService {
         if (bookings.hasOverlap(normalized.roomId(), normalized.startsAt(), normalized.endsAt())) {
             throw new ConflictException("Room is already booked for this interval");
         }
-        Booking booking = new Booking(UUID.randomUUID(), normalized.roomId(), normalized.employeeEmail(),
-                normalized.startsAt().withOffsetSameInstant(ZoneOffset.UTC),
-                normalized.endsAt().withOffsetSameInstant(ZoneOffset.UTC), OffsetDateTime.now(clock));
         bookings.save(booking);
-        if (key != null) {
-            idempotency.save(new BookingIdempotency(key, requestFingerprint, booking,
-                    booking.createdAt().plus(IDEMPOTENCY_RETENTION)));
-        }
         return booking;
+    }
+
+    private Optional<Booking> replay(String key, String requestFingerprint) {
+        return idempotency.findById(key).map(stored -> {
+            if (!stored.fingerprint().equals(requestFingerprint)) {
+                throw new ConflictException("Idempotency-Key was already used for a different request");
+            }
+            Booking booking = stored.booking();
+            if (!bookings.existsById(booking.id())) {
+                throw new ConflictException("The booking created with this Idempotency-Key was cancelled");
+            }
+            return booking;
+        });
     }
 
     @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)

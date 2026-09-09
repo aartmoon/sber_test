@@ -25,6 +25,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.PlatformTransactionManager;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -34,6 +35,7 @@ class BookingServiceTest {
     @Mock RoomRepository rooms;
     @Mock BookingIntervalValidator validator;
     @Mock IdempotencyRepository idempotency;
+    @Mock PlatformTransactionManager transactionManager;
     private BookingService service;
     private final Clock clock = Clock.fixed(Instant.parse("2030-01-01T08:00:00Z"), ZoneOffset.UTC);
     private final CreateBookingCommand request = new CreateBookingCommand("room-1", "employee@example.com",
@@ -44,7 +46,7 @@ class BookingServiceTest {
     void setUp() {
         var normalizer = new RequestNormalizer();
         service = new BookingService(bookings, rooms, validator, idempotency,
-                normalizer, new BookingFingerprint(), new BookingCursorCodec(), clock);
+                normalizer, new BookingFingerprint(), new BookingCursorCodec(), clock, transactionManager);
     }
 
     @Test

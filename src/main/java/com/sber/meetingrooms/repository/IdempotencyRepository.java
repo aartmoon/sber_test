@@ -7,15 +7,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface IdempotencyRepository extends JpaRepository<BookingIdempotency, String> {
-    @Query(value = "SELECT bucket FROM idempotency_locks WHERE bucket = :bucket FOR UPDATE",
-            nativeQuery = true)
-    Integer lockBucket(@Param("bucket") int bucket);
-
-    default void lock(String key) {
-        lockBucket(Math.floorMod(key.hashCode(), 64));
-    }
-
+public interface IdempotencyRepository extends JpaRepository<BookingIdempotency, String>,
+        IdempotencyInsertRepository {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from BookingIdempotency request where request.expiresAt <= :now")
     int deleteExpired(@Param("now") OffsetDateTime now);
