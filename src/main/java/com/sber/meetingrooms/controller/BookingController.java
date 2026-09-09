@@ -38,7 +38,6 @@ public class BookingController implements BookingsApi {
         return ResponseEntity.ok(mapper.toResponse(service.list(cursor, size)));
     }
 
-    // A bodyless success must not inherit the generated error-only produces constraint.
     @Override
     @DeleteMapping("/api/bookings/{id}")
     public ResponseEntity<Void> cancelBooking(UUID id) {

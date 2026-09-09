@@ -112,4 +112,39 @@ class BookingLockTimeoutIntegrationTest extends ApiIntegrationTestSupport {
             holder.get(5, TimeUnit.SECONDS);
         }
     }
+
+    @Test
+    void rejectsPastStartWithoutWaitingForRoomLock() throws Exception {
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+
+        try (var executor = Executors.newSingleThreadExecutor()) {
+            var holder = executor.submit(() -> new TransactionTemplate(transactionManager)
+                    .executeWithoutResult(status -> {
+                        rooms.findByIdForUpdate("room-1").orElseThrow();
+                        locked.countDown();
+                        try {
+                            if (!release.await(5, TimeUnit.SECONDS)) {
+                                throw new IllegalStateException("Lock release timeout");
+                            }
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            throw new IllegalStateException("Interrupted while holding room lock", ex);
+                        }
+                    }));
+
+            assertThat(locked.await(5, TimeUnit.SECONDS)).isTrue();
+            try {
+                mvc.perform(post("/api/bookings")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(payload("room-1", "2030-01-01T07:00:00Z",
+                                        "2030-01-01T08:00:00Z")))
+                        .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.detail").value("Booking cannot start in the past"));
+            } finally {
+                release.countDown();
+            }
+            holder.get(5, TimeUnit.SECONDS);
+        }
+    }
 }

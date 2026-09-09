@@ -65,6 +65,7 @@ class BookingServiceTest {
         assertThat(result.createdAt()).isEqualTo(OffsetDateTime.now(clock));
         var order = inOrder(rooms, validator, bookings);
         order.verify(validator).validateStructure(request.startsAt(), request.endsAt());
+        order.verify(validator).validateNotPast(request.startsAt());
         order.verify(rooms).lockById(request.roomId());
         order.verify(validator).validateNotPast(request.startsAt());
         order.verify(bookings).hasOverlap(request.roomId(), request.startsAt(), request.endsAt());
@@ -86,6 +87,16 @@ class BookingServiceTest {
 
         assertThatThrownBy(() -> service.create(request, null)).isSameAs(invalid);
         verifyNoInteractions(rooms, bookings);
+    }
+
+    @Test
+    void rejectsPastStartBeforeLockingRoom() {
+        var invalid = new InvalidRequestException("Booking cannot start in the past");
+        doThrow(invalid).when(validator).validateNotPast(request.startsAt());
+
+        assertThatThrownBy(() -> service.create(request, null)).isSameAs(invalid);
+
+        verifyNoInteractions(rooms, bookings, idempotency);
     }
 
     @Test

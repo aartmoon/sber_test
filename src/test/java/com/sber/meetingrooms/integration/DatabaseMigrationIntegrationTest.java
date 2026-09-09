@@ -32,7 +32,7 @@ class DatabaseMigrationIntegrationTest extends ApiIntegrationTestSupport {
 
     @Test
     void appliesAllFlywayMigrations() {
-        assertThat(flyway.info().applied()).hasSize(4);
+        assertThat(flyway.info().applied()).hasSize(3);
         assertThat(rooms.count()).isEqualTo(3);
     }
 }

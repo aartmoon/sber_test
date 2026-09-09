@@ -1,6 +1,7 @@
 package com.sber.meetingrooms.service;
 
 import com.sber.meetingrooms.exception.ConflictException;
+import com.sber.meetingrooms.exception.InvalidRequestException;
 import com.sber.meetingrooms.exception.ResourceNotFoundException;
 import com.sber.meetingrooms.model.Booking;
 import com.sber.meetingrooms.model.BookingIdempotency;
@@ -62,6 +63,14 @@ public class BookingService {
         intervalValidator.validateStructure(normalized.startsAt(), normalized.endsAt());
         String key = normalizer.normalizeIdempotencyKey(idempotencyKey);
         String requestFingerprint = key == null ? null : fingerprint.calculate(normalized);
+        try {
+            intervalValidator.validateNotPast(normalized.startsAt());
+        } catch (InvalidRequestException ex) {
+            if (key == null) {
+                throw ex;
+            }
+            return creationTransaction.execute(status -> replay(key, requestFingerprint).orElseThrow(() -> ex));
+        }
         try {
             return creationTransaction.execute(status -> createBooking(normalized, key, requestFingerprint));
         } catch (DataIntegrityViolationException ex) {
