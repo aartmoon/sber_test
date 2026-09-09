@@ -41,8 +41,22 @@ paths:
         '503': {$ref: '#/components/responses/ServiceUnavailable'}
     get:
       tags: [Bookings]
+      operationId: listAllBookings
+      summary: List all bookings in chronological order
+      responses:
+        '200':
+          description: All bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookingResponse'
+  /api/v2/bookings:
+    get:
+      tags: [Bookings]
       operationId: listBookings
-      summary: List bookings in chronological order
+      summary: List bookings in chronological order using cursor pagination
       parameters:
         - name: cursor
           in: query

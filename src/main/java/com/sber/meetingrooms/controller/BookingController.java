@@ -7,6 +7,7 @@ import com.sber.meetingrooms.generated.model.BookingResponse;
 import com.sber.meetingrooms.service.BookingService;
 import com.sber.meetingrooms.service.CreateBookingCommand;
 import java.net.URI;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.lang.Nullable;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,11 @@ public class BookingController implements BookingsApi {
                 request.getStartsAt(), request.getEndsAt()), idempotencyKey);
         return ResponseEntity.created(URI.create("/api/bookings/" + booking.id()))
                 .body(mapper.toResponse(booking));
+    }
+
+    @Override
+    public ResponseEntity<List<BookingResponse>> listAllBookings() {
+        return ResponseEntity.ok(service.listAll().stream().map(mapper::toResponse).toList());
     }
 
     @Override

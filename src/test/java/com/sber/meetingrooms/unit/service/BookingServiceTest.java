@@ -125,6 +125,17 @@ class BookingServiceTest {
     }
 
     @Test
+    void returnsAllBookingsInRepositoryOrder() {
+        Booking first = new Booking(UUID.randomUUID(), request.roomId(), request.employeeEmail(),
+                request.startsAt(), request.endsAt(), OffsetDateTime.now(clock));
+        Booking second = new Booking(UUID.randomUUID(), "room-2", request.employeeEmail(),
+                request.startsAt().plusHours(2), request.endsAt().plusHours(2), OffsetDateTime.now(clock));
+        when(bookings.findAllByOrderByStartsAtAscIdAsc()).thenReturn(List.of(first, second));
+
+        assertThat(service.listAll()).containsExactly(first, second);
+    }
+
+    @Test
     void cancelsExistingBooking() {
         UUID id = UUID.randomUUID();
         when(bookings.deleteBookingById(id)).thenReturn(1);

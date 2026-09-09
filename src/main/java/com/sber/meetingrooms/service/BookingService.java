@@ -121,6 +121,11 @@ public class BookingService {
     }
 
     @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
+    public List<Booking> listAll() {
+        return bookings.findAllByOrderByStartsAtAscIdAsc();
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.READ_COMMITTED)
     public BookingPageResult list(String cursor, int size) {
         var limit = PageRequest.of(0, size + 1);
         List<Booking> result;

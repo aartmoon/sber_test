@@ -20,6 +20,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     List<Booking> findAllByOrderByStartsAtAscIdAsc(Pageable pageable);
 
+    List<Booking> findAllByOrderByStartsAtAscIdAsc();
+
     @Query("""
             select booking from Booking booking
             where booking.startsAt > :startsAt

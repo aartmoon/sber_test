@@ -44,7 +44,7 @@ class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
                     .andExpect(status().isCreated());
         }
 
-        var firstPage = mvc.perform(get("/api/bookings").param("size", "2"))
+        var firstPage = mvc.perform(get("/api/v2/bookings").param("size", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].startsAt").value(timestamp(9)))
@@ -55,7 +55,7 @@ class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
         String cursor = mapper.readTree(firstPage.getResponse().getContentAsString())
                 .get("nextCursor").asText();
 
-        mvc.perform(get("/api/bookings").param("cursor", cursor).param("size", "2"))
+        mvc.perform(get("/api/v2/bookings").param("cursor", cursor).param("size", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].startsAt").value(timestamp(11)))
@@ -72,14 +72,14 @@ class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
                     .andExpect(status().isCreated());
         }
 
-        var firstPage = mvc.perform(get("/api/bookings").param("size", "2"))
+        var firstPage = mvc.perform(get("/api/v2/bookings").param("size", "2"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.hasMore").value(true))
                 .andReturn();
         var firstJson = mapper.readTree(firstPage.getResponse().getContentAsString());
 
-        var secondPage = mvc.perform(get("/api/bookings")
+        var secondPage = mvc.perform(get("/api/v2/bookings")
                         .param("cursor", firstJson.get("nextCursor").asText())
                         .param("size", "2"))
                 .andExpect(status().isOk())
@@ -96,9 +96,9 @@ class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
 
     @Test
     void validatesPaginationBounds() throws Exception {
-        mvc.perform(get("/api/bookings").param("cursor", "not-a-valid-cursor"))
+        mvc.perform(get("/api/v2/bookings").param("cursor", "not-a-valid-cursor"))
                 .andExpect(status().isBadRequest());
-        mvc.perform(get("/api/bookings").param("size", "101"))
+        mvc.perform(get("/api/v2/bookings").param("size", "101"))
                 .andExpect(status().isBadRequest());
     }
 
@@ -120,7 +120,7 @@ class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.id").value(firstId))
                 .andExpect(header().string("Location", "/api/bookings/" + firstId));
         mvc.perform(get("/api/bookings"))
-                .andExpect(jsonPath("$.content.length()").value(1));
+                .andExpect(jsonPath("$.length()").value(1));
     }
 
     @Test
@@ -157,7 +157,7 @@ class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(jsonPath("$.detail").value(
                         "The booking created with this Idempotency-Key was cancelled"));
         mvc.perform(get("/api/bookings"))
-                .andExpect(jsonPath("$.content").isEmpty());
+                .andExpect(jsonPath("$").isEmpty());
     }
 
     @Test
@@ -184,7 +184,7 @@ class BookingApiEnhancementsIntegrationTest extends ApiIntegrationTestSupport {
 
         assertThat(replayId).isNotEqualTo(firstId);
         mvc.perform(get("/api/bookings"))
-                .andExpect(jsonPath("$.content.length()").value(1));
+                .andExpect(jsonPath("$.length()").value(1));
     }
 
     @Test

@@ -34,6 +34,6 @@ class BookingOverlapIntegrationTest extends ApiIntegrationTestSupport {
                     .content(mapper.writeValueAsString(value))).andExpect(status().isCreated());
         }
         mvc.perform(get("/api/bookings"))
-                .andExpect(jsonPath("$.content[0].startsAt").value("2030-01-01T09:00:00Z"));
+                .andExpect(jsonPath("$[0].startsAt").value("2030-01-01T09:00:00Z"));
     }
 }

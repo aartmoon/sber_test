@@ -41,6 +41,6 @@ class BookingReplayTimeIntegrationTest extends ApiIntegrationTestSupport {
                 .andExpect(status().isBadRequest());
         mvc.perform(post("/api/bookings").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
-        mvc.perform(get("/api/bookings")).andExpect(jsonPath("$.content.length()").value(1));
+        mvc.perform(get("/api/bookings")).andExpect(jsonPath("$.length()").value(1));
     }
 }
