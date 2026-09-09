@@ -125,7 +125,6 @@ class IdempotencyConcurrencyIntegrationTest extends ApiIntegrationTestSupport {
     }
 
     private List<Object> race(String secondRoom, String firstKey, String secondKey) throws Exception {
-        // Both transactions must observe an absent key before attempting their inserts.
         var inserting = new CyclicBarrier(2);
         doAnswer(invocation -> {
             inserting.await(5, TimeUnit.SECONDS);
