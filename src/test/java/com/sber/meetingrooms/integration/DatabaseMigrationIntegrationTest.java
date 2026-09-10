@@ -18,21 +18,23 @@ class DatabaseMigrationIntegrationTest extends ApiIntegrationTestSupport {
     void usesCursorIndexForBothPages() {
         String first = jdbc.queryForObject("""
                 EXPLAIN SELECT * FROM bookings
+                WHERE cancelled_at IS NULL
                 ORDER BY starts_at, id FETCH FIRST 21 ROWS ONLY
                 """, String.class);
         String next = jdbc.queryForObject("""
                 EXPLAIN SELECT * FROM bookings
-                WHERE starts_at > ? OR (starts_at = ? AND id > ?)
+                WHERE cancelled_at IS NULL
+                  AND (starts_at > ? OR (starts_at = ? AND id > ?))
                 ORDER BY starts_at, id FETCH FIRST 21 ROWS ONLY
                 """, String.class, java.time.OffsetDateTime.parse("2030-01-01T10:00:00Z"),
                 java.time.OffsetDateTime.parse("2030-01-01T10:00:00Z"), java.util.UUID.randomUUID());
-        assertThat(first).containsIgnoringCase("idx_bookings_cursor").contains("index sorted");
-        assertThat(next).containsIgnoringCase("idx_bookings_cursor").contains("index sorted");
+        assertThat(first).containsIgnoringCase("idx_bookings_active_cursor");
+        assertThat(next).containsIgnoringCase("idx_bookings_active_cursor");
     }
 
     @Test
     void appliesAllFlywayMigrations() {
-        assertThat(flyway.info().applied()).hasSize(3);
+        assertThat(flyway.info().applied()).hasSize(4);
         assertThat(rooms.count()).isEqualTo(3);
     }
 }

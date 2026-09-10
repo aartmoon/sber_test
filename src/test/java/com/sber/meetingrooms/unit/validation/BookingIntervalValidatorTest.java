@@ -1,8 +1,10 @@
 package com.sber.meetingrooms.unit.validation;
 
+import com.sber.meetingrooms.config.BookingPolicyProperties;
 import com.sber.meetingrooms.exception.InvalidRequestException;
 import com.sber.meetingrooms.validation.BookingIntervalValidator;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -13,7 +15,8 @@ import static org.assertj.core.api.Assertions.*;
 
 class BookingIntervalValidatorTest {
     private final BookingIntervalValidator validator = new BookingIntervalValidator(
-            Clock.fixed(Instant.parse("2030-01-01T08:00:00Z"), ZoneOffset.UTC));
+            Clock.fixed(Instant.parse("2030-01-01T08:00:00Z"), ZoneOffset.UTC),
+            new BookingPolicyProperties(Duration.ofMinutes(15), Duration.ofHours(4)));
 
     @ParameterizedTest
     @CsvSource({

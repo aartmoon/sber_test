@@ -28,5 +28,9 @@ management:
     health:
       show-details: never
 app:
+  booking:
+    min-duration: 15m
+    max-duration: 4h
   idempotency:
+    retention: 24h
     cleanup-cron: "0 0 * * * *"

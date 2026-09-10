@@ -1,5 +1,6 @@
 package com.sber.meetingrooms.unit.service;
 
+import com.sber.meetingrooms.config.IdempotencyProperties;
 import com.sber.meetingrooms.exception.ConflictException;
 import com.sber.meetingrooms.exception.InvalidRequestException;
 import com.sber.meetingrooms.exception.ResourceNotFoundException;
@@ -8,12 +9,17 @@ import com.sber.meetingrooms.repository.BookingRepository;
 import com.sber.meetingrooms.repository.IdempotencyRepository;
 import com.sber.meetingrooms.repository.RoomRepository;
 import com.sber.meetingrooms.service.BookingService;
+import com.sber.meetingrooms.service.BookingCancellationService;
+import com.sber.meetingrooms.service.BookingCreationService;
+import com.sber.meetingrooms.service.BookingIdempotencyService;
+import com.sber.meetingrooms.service.BookingQueryService;
 import com.sber.meetingrooms.service.BookingFingerprint;
 import com.sber.meetingrooms.service.BookingCursorCodec;
 import com.sber.meetingrooms.service.RequestNormalizer;
 import com.sber.meetingrooms.service.CreateBookingCommand;
 import com.sber.meetingrooms.validation.BookingIntervalValidator;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -45,8 +51,13 @@ class BookingServiceTest {
     @BeforeEach
     void setUp() {
         var normalizer = new RequestNormalizer();
-        service = new BookingService(bookings, rooms, validator, idempotency,
-                normalizer, new BookingFingerprint(), new BookingCursorCodec(), clock, transactionManager);
+        var idempotencyService = new BookingIdempotencyService(idempotency, bookings,
+                normalizer, new BookingFingerprint(), new IdempotencyProperties(Duration.ofHours(24)));
+        var creation = new BookingCreationService(bookings, rooms, validator,
+                normalizer, idempotencyService, clock, transactionManager);
+        var queries = new BookingQueryService(bookings, new BookingCursorCodec());
+        var cancellation = new BookingCancellationService(bookings, clock);
+        service = new BookingService(creation, queries, cancellation);
     }
 
     @Test
@@ -115,7 +126,7 @@ class BookingServiceTest {
                 request.startsAt(), request.endsAt(), OffsetDateTime.now(clock));
         Booking second = new Booking(UUID.randomUUID(), "room-2", request.employeeEmail(),
                 request.startsAt().plusHours(2), request.endsAt().plusHours(2), OffsetDateTime.now(clock));
-        when(bookings.findAllByOrderByStartsAtAscIdAsc(any(Pageable.class)))
+        when(bookings.findAllByCancelledAtIsNullOrderByStartsAtAscIdAsc(any(Pageable.class)))
                 .thenReturn(List.of(first, second));
 
         var page = service.list(null, 20);
@@ -130,7 +141,7 @@ class BookingServiceTest {
                 request.startsAt(), request.endsAt(), OffsetDateTime.now(clock));
         Booking second = new Booking(UUID.randomUUID(), "room-2", request.employeeEmail(),
                 request.startsAt().plusHours(2), request.endsAt().plusHours(2), OffsetDateTime.now(clock));
-        when(bookings.findAllByOrderByStartsAtAscIdAsc()).thenReturn(List.of(first, second));
+        when(bookings.findAllByCancelledAtIsNullOrderByStartsAtAscIdAsc()).thenReturn(List.of(first, second));
 
         assertThat(service.listAll()).containsExactly(first, second);
     }
@@ -138,16 +149,16 @@ class BookingServiceTest {
     @Test
     void cancelsExistingBooking() {
         UUID id = UUID.randomUUID();
-        when(bookings.deleteBookingById(id)).thenReturn(1);
+        when(bookings.cancelById(id, OffsetDateTime.now(clock))).thenReturn(1);
 
         assertThatCode(() -> service.cancel(id)).doesNotThrowAnyException();
-        verify(bookings).deleteBookingById(id);
+        verify(bookings).cancelById(id, OffsetDateTime.now(clock));
     }
 
     @Test
     void reportsMissingBookingOnCancellation() {
         UUID id = UUID.randomUUID();
-        when(bookings.deleteBookingById(id)).thenReturn(0);
+        when(bookings.cancelById(id, OffsetDateTime.now(clock))).thenReturn(0);
         assertThatThrownBy(() -> service.cancel(id))
                 .isInstanceOf(ResourceNotFoundException.class);
     }

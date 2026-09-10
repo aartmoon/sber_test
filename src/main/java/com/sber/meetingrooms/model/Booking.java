@@ -28,6 +28,9 @@ public class Booking {
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
+    @Column(name = "cancelled_at")
+    private OffsetDateTime cancelledAt;
+
     protected Booking() {
     }
 
@@ -63,5 +66,9 @@ public class Booking {
 
     public OffsetDateTime createdAt() {
         return createdAt;
+    }
+
+    public OffsetDateTime cancelledAt() {
+        return cancelledAt;
     }
 }
